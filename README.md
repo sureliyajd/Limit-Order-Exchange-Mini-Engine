@@ -1,31 +1,20 @@
-# 📘 Full Stack Trading Engine Assignment
+# 🚀 Full-Stack Trading Engine
 
-**Laravel API + Vue.js (Composition API) + Real-Time Order Matching**
-
----
-
-## 📌 Project Overview
-
-This project is a simplified **crypto spot trading engine** implementing **limit orders**, **wallet balances**, **asset locking**, **full-match execution**, and **real-time updates**.
-
-The system ensures:
-
-* Financial integrity
-* Concurrency safety
-* Atomic balance & asset updates
-* Deterministic order matching
-* Real-time UI updates via Pusher
+**Laravel 12 API + Vue 3 + Real-Time Order Matching**
 
 ---
 
-## 🧱 Repository Structure
+## 📌 Overview
 
-```
-/
-├── backend/        # Laravel API
-├── frontend/       # Vue.js (Composition API + Tailwind)
-└── README.md
-```
+This project is a **simplified crypto spot trading engine** built to demonstrate:
+
+* Financial data integrity
+* Concurrency-safe balance and asset management
+* Deterministic limit-order matching
+* Real-time updates using WebSockets
+* Clean separation of backend and frontend concerns
+
+The system supports **limit buy/sell orders**, **wallet balances**, **asset locking**, **full-match execution only**, and **instant UI updates** using **Laravel Broadcasting + Pusher**.
 
 ---
 
@@ -33,349 +22,300 @@ The system ensures:
 
 ### Backend
 
-* Laravel (latest stable)
-* MySQL or PostgreSQL
-* Laravel Sanctum (API auth)
-* Laravel Queues (optional for matching)
-* Laravel Broadcasting (Pusher)
+* **Laravel 12**
+* **Laravel Sanctum** (token-based API authentication)
+* **MySQL / PostgreSQL**
+* **Laravel Broadcasting**
+* **Pusher**
 
 ### Frontend
 
-* Vue.js (latest stable)
-* Composition API
-* Tailwind CSS (latest)
-* Axios
-* Laravel Echo + Pusher JS
+* **Vue 3** (Composition API)
+* **Vite**
+* **Tailwind CSS v4**
+* **Axios**
+* **Laravel Echo + Pusher JS**
 
-### Real-Time
+---
 
-* Pusher (private user channels)
+## 🧱 Repository Structure
+
+```
+/
+├── backend/        # Laravel 12 API
+├── frontend/       # Vue 3 frontend
+└── README.md
+```
 
 ---
 
 ## 🔐 Authentication
 
-* API authentication via **Laravel Sanctum**
-* Frontend stores auth token securely
-* All API routes (except login/register) are authenticated
+* Token-based authentication using **Laravel Sanctum**
+* Tokens are issued via `/api/login`
+* Frontend sends token using:
+
+  ```
+  Authorization: Bearer <token>
+  ```
+* Same token is used for:
+
+  * API access
+  * Private broadcasting channel authorization
 
 ---
 
-## 🗄 Database Schema
+## 📊 Database Schema
 
 ### users
 
-Default Laravel fields plus:
-
-| Column  | Type          | Notes              |
-| ------- | ------------- | ------------------ |
-| balance | decimal(20,8) | USD wallet balance |
-
----
+* Default Laravel fields
+* `balance decimal(20,8)` — USD wallet balance
 
 ### assets
 
-Tracks crypto balances per user.
-
-| Column        | Type          | Notes                    |
-| ------------- | ------------- | ------------------------ |
-| user_id       | foreignId     | references users         |
-| symbol        | string        | BTC, ETH                 |
-| amount        | decimal(20,8) | available balance        |
-| locked_amount | decimal(20,8) | reserved for sell orders |
-
-Unique constraint: `(user_id, symbol)`
-
----
+* `user_id`
+* `symbol` (BTC, ETH)
+* `amount decimal(20,8)` — available balance
+* `locked_amount decimal(20,8)` — reserved for sell orders
+* Unique constraint: `(user_id, symbol)`
 
 ### orders
 
-Stores limit orders.
+* `user_id`
+* `symbol`
+* `side` (`buy` / `sell`)
+* `price decimal(20,8)`
+* `amount decimal(20,8)`
+* `status`
 
-| Column  | Type          | Notes                         |
-| ------- | ------------- | ----------------------------- |
-| user_id | foreignId     |                               |
-| symbol  | string        | BTC, ETH                      |
-| side    | enum          | buy / sell                    |
-| price   | decimal(20,8) |                               |
-| amount  | decimal(20,8) |                               |
-| status  | tinyint       | 1=open, 2=filled, 3=cancelled |
+  * `1 = OPEN`
+  * `2 = FILLED`
+  * `3 = CANCELLED`
 
----
+### trades
 
-### trades (Optional but recommended)
-
-Stores executed matches.
-
-| Column        | Type          | Notes |
-| ------------- | ------------- | ----- |
-| buy_order_id  | foreignId     |       |
-| sell_order_id | foreignId     |       |
-| symbol        | string        |       |
-| price         | decimal(20,8) |       |
-| amount        | decimal(20,8) |       |
-| usd_volume    | decimal(20,8) |       |
-| commission    | decimal(20,8) |       |
-| created_at    | timestamp     |       |
+* `buy_order_id`
+* `sell_order_id`
+* `symbol`
+* `price`
+* `amount`
+* `usd_volume`
+* `commission`
+* All monetary fields use `decimal(20,8)`
 
 ---
 
-## 🔌 API Endpoints
+## ⚙️ Core Business Rules
 
-### Profile & Wallet
+### Order Placement
 
-#### `GET /api/profile`
+* **BUY**
 
-Returns:
+  * USD balance is checked and locked upfront
+* **SELL**
 
-* USD balance
+  * Asset amount is moved to `locked_amount`
+* All mutations happen inside **database transactions**
+* Row-level locking (`SELECT FOR UPDATE`) prevents race conditions
+
+### Order Cancellation
+
+* Only OPEN orders can be cancelled
+* Locked funds/assets are safely restored
+* Fully transactional and race-safe
+
+---
+
+## 🔄 Matching Engine
+
+* **Full match only** (no partial fills)
+* FIFO with price priority
+* Prevents self-matching
+* Executed inside a single transaction
+* Uses row-level locking on:
+
+  * Orders
+  * Users
+  * Assets
+
+### Commission
+
+* **1.5% of USD trade volume**
+* Charged to the **buyer**
+* Seller receives full USD value
+
+---
+
+## 📡 Real-Time Updates
+
+* On successful match, an `OrderMatched` event is broadcast
+* Uses **private channels**:
+
+  ```
+  private-user.{id}
+  ```
+* Event payload includes:
+
+  * Trade details
+  * Updated balances
+  * Updated assets
+  * Order status updates
+* Broadcast is dispatched **after DB commit** using `DB::afterCommit()`
+
+---
+
+## 🌐 API Endpoints
+
+### Authentication
+
+| Method | Endpoint      | Description                   |
+| ------ | ------------- | ----------------------------- |
+| POST   | `/api/login`  | Login and issue Sanctum token |
+| POST   | `/api/logout` | Revoke current token          |
+
+### Trading (Authenticated)
+
+| Method | Endpoint                  | Description       |
+| ------ | ------------------------- | ----------------- |
+| GET    | `/api/profile`            | Wallet balances   |
+| GET    | `/api/orders?symbol=BTC`  | Open orderbook    |
+| POST   | `/api/orders`             | Place limit order |
+| POST   | `/api/orders/{id}/cancel` | Cancel open order |
+
+---
+
+## 🎨 Frontend Features
+
+### Pages
+
+* **Login**
+* **Dashboard**
+
+### Dashboard Sections
+
+* USD wallet balance
 * Asset balances (available + locked)
-* User metadata
+* Live orderbook (buy / sell)
+* Order history with status
+* Cancel open orders
+* Real-time updates without refresh
+
+### Frontend Principles
+
+* No balance computation on client
+* No optimistic updates
+* State updates only from backend responses or events
 
 ---
 
-### Orders
+## 🚀 Local Setup Instructions
 
-#### `GET /api/orders?symbol=BTC`
+### 📋 Prerequisites
 
-Returns **open orders only** for orderbook:
-
-* Buy orders sorted by price DESC
-* Sell orders sorted by price ASC
-
----
-
-#### `POST /api/orders`
-
-Creates a **limit order**.
-
-Payload:
-
-```json
-{
-  "symbol": "BTC",
-  "side": "buy",
-  "price": 95000,
-  "amount": 0.01
-}
-```
+* PHP ≥ 8.2
+* Composer
+* Node.js ≥ 18
+* MySQL or PostgreSQL
+* Pusher account (free tier works)
 
 ---
 
-#### `POST /api/orders/{id}/cancel`
-
-Cancels an open order and:
-
-* Releases locked USD (buy)
-* Releases locked assets (sell)
-
----
-
-## ⚙️ Core Business Logic (CRITICAL)
-
-### Buy Order Flow
-
-1. Check: `users.balance >= price * amount`
-2. Lock USD:
-
-   * Deduct from `users.balance`
-   * Store locked value internally
-3. Create order with status = OPEN
-4. Trigger matching engine
-
----
-
-### Sell Order Flow
-
-1. Check: `assets.amount >= amount`
-2. Lock asset:
-
-   * Move amount → `locked_amount`
-3. Create order with status = OPEN
-4. Trigger matching engine
-
----
-
-## 🔄 Matching Engine Rules
-
-* **Full match only** (NO partial fills)
-* Triggered immediately after order creation
-* Matching logic:
-
-  * New BUY → first SELL where `sell.price <= buy.price`
-  * New SELL → first BUY where `buy.price >= sell.price`
-* Oldest matching order wins (FIFO)
-
----
-
-## 💰 Commission Rules (MANDATORY)
-
-* Commission = **1.5% of USD volume**
-
-* Example:
-
-  ```
-  0.01 BTC @ 95,000 USD
-  USD volume = 950
-  Commission = 14.25 USD
-  ```
-
-* Commission handling:
-
-  * Deduct USD fee from buyer
-  * Seller receives full USD OR asset (implementation choice)
-
-* Must be **consistent and documented**
-
----
-
-## 🔒 Concurrency & Safety Requirements
-
-All matching logic MUST:
-
-* Use `DB::transaction()`
-* Lock rows using `SELECT ... FOR UPDATE`
-* Prevent double-spend
-* Prevent race conditions
-* Be idempotent
-
-No balance or asset mutation may occur **outside a transaction**.
-
----
-
-## 📡 Real-Time Broadcasting (MANDATORY)
-
-### Event: `OrderMatched`
-
-Triggered on successful match.
-
-Broadcast via:
-
-* Pusher
-* Private channels:
-
-  ```
-  private-user.{user_id}
-  ```
-
-Payload includes:
-
-* Updated balances
-* Updated assets
-* Order status changes
-* Trade details
-
----
-
-## 🎨 Frontend (Vue.js)
-
-### Pages Required
-
-#### 1️⃣ Limit Order Form
-
-* Symbol dropdown (BTC / ETH)
-* Side selector (Buy / Sell)
-* Price input
-* Amount input
-* Submit button
-* Validation feedback
-
----
-
-#### 2️⃣ Orders & Wallet Overview
-
-Sections:
-
-* USD balance
-* Asset balances
-* Order history (open / filled / cancelled)
-* Orderbook (live)
-
----
-
-### Real-Time UI Updates
-
-* Listen via Laravel Echo
-* On `OrderMatched`:
-
-  * Update wallet balances
-  * Update asset balances
-  * Update order status
-  * Reflect changes without refresh
-
----
-
-## 🧪 Optional Enhancements (Bonus)
-
-* Toast notifications
-* Order filtering
-* Estimated order cost preview
-* Trade history UI
-* Background queue for matching
-* Seeder for demo users & balances
-
----
-
-## 🧾 Setup Instructions
-
-### Backend
+### 🧱 Backend Setup
 
 ```bash
 cd backend
+composer install
 cp .env.example .env
 php artisan key:generate
+```
+
+#### Configure `.env`
+
+```env
+DB_DATABASE=trading_engine
+DB_USERNAME=root
+DB_PASSWORD=
+
+BROADCAST_DRIVER=pusher
+PUSHER_APP_ID=xxxx
+PUSHER_APP_KEY=xxxx
+PUSHER_APP_SECRET=xxxx
+PUSHER_APP_CLUSTER=ap2
+```
+
+```bash
 php artisan migrate
+php artisan db:seed
 php artisan serve
 ```
 
-Configure:
+Backend runs on:
 
-* Database
-* Pusher credentials
-* Queue (optional)
+```
+http://127.0.0.1:8000
+```
 
 ---
 
-### Frontend
+### 🎨 Frontend Setup
 
 ```bash
 cd frontend
 npm install
+cp .env.example .env
+```
+
+```env
+VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_PUSHER_KEY=xxxx
+VITE_PUSHER_CLUSTER=ap2
+```
+
+```bash
 npm run dev
 ```
 
-Configure:
+Frontend runs on:
 
-* API base URL
-* Pusher key & cluster
-
----
-
-## ✅ Evaluation Focus
-
-This project will be evaluated on:
-
-* Financial correctness
-* Transaction safety
-* Order matching integrity
-* Real-time stability
-* Code clarity
-* Commit hygiene
+```
+http://localhost:5173
+```
 
 ---
 
-## 🧠 Notes for AI Code Generation
+## 🔍 Demo Flow
 
-* Always prefer correctness over shortcuts
-* No fake balances
-* No partial matching
-* No optimistic UI without server confirmation
-* Transactions are mandatory
+1. Login as User A
+2. Place BUY order
+3. Login as User B
+4. Place SELL order (same amount, valid price)
+5. Observe:
+
+   * Orders match instantly
+   * Wallets update in real time
+   * Order statuses change without refresh
 
 ---
 
-## 📌 Author
+## 🧠 Architecture Notes
+
+* All financial operations are transactional
+* Row-level locking ensures race safety
+* Funds and assets are locked before matching
+* Matching is deterministic and auditable
+* Real-time events are dispatched after commit
+* Frontend state is backend-driven
+
+---
+
+## 👤 Author
 
 **Jaydeep Sureliya**
 
+---
 
+## 🏁 Final Note
+
+This project was intentionally designed with **correctness and safety over shortcuts**.
+The implementation reflects **real-world trading system principles**, not demo-level assumptions.
