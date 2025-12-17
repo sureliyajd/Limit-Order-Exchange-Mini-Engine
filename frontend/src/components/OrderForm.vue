@@ -1,9 +1,10 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { tradingStore } from '../stores/tradingStore'
 
 const symbols = ['BTC', 'ETH']
 const sides = ['buy', 'sell']
+const COMMISSION_RATE = 0.015 // 1.5%
 
 const symbol = ref('BTC')
 const side = ref('buy')
@@ -12,20 +13,35 @@ const amount = ref('')
 const isSubmitting = ref(false)
 const error = ref('')
 
+// Volume calculation preview
+const volumePreview = computed(() => {
+  const p = parseFloat(price.value) || 0
+  const a = parseFloat(amount.value) || 0
+  const volume = p * a
+  const commission = volume * COMMISSION_RATE
+  const total = side.value === 'buy' ? volume + commission : volume - commission
+  return { volume, commission, total }
+})
+
+const emit = defineEmits(['orderPlaced'])
+
 async function handleSubmit() {
   error.value = ''
   isSubmitting.value = true
   try {
-    await tradingStore.placeOrder({
+    const order = await tradingStore.placeOrder({
       symbol: symbol.value,
       side: side.value,
       price: parseFloat(price.value),
       amount: parseFloat(amount.value),
     })
+    tradingStore.showToast(`Order placed: ${side.value.toUpperCase()} ${amount.value} ${symbol.value}`, 'success')
     price.value = ''
     amount.value = ''
+    emit('orderPlaced')
   } catch (e) {
     error.value = e.response?.data?.message || 'Failed to place order'
+    tradingStore.showToast(error.value, 'error')
   } finally {
     isSubmitting.value = false
   }
@@ -88,6 +104,24 @@ async function handleSubmit() {
           class="w-full bg-gray-700 text-white rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
           placeholder="0.00"
         />
+      </div>
+
+      <!-- Volume Preview -->
+      <div v-if="volumePreview.volume > 0" class="bg-gray-700/50 rounded p-3 text-sm space-y-1">
+        <div class="flex justify-between text-gray-400">
+          <span>Volume</span>
+          <span class="font-mono text-white">${{ volumePreview.volume.toFixed(2) }}</span>
+        </div>
+        <div class="flex justify-between text-gray-400">
+          <span>Commission (1.5%)</span>
+          <span class="font-mono text-yellow-400">${{ volumePreview.commission.toFixed(2) }}</span>
+        </div>
+        <div class="flex justify-between text-gray-300 border-t border-gray-600 pt-1">
+          <span>{{ side === 'buy' ? 'Total Cost' : 'You Receive' }}</span>
+          <span :class="['font-mono font-semibold', side === 'buy' ? 'text-red-400' : 'text-green-400']">
+            ${{ volumePreview.total.toFixed(2) }}
+          </span>
+        </div>
       </div>
 
       <div v-if="error" class="text-red-400 text-sm">{{ error }}</div>

@@ -131,6 +131,7 @@ class MatchingEngineService
                     'created_at' => $trade->created_at->toISOString(),
                 ],
                 'buyerData' => [
+                    'user_id' => $buyer->id,
                     'balance' => $buyer->balance,
                     'asset' => [
                         'symbol' => $buyerAsset->symbol,
@@ -143,6 +144,7 @@ class MatchingEngineService
                     ],
                 ],
                 'sellerData' => [
+                    'user_id' => $seller->id,
                     'balance' => $seller->balance,
                     'asset' => [
                         'symbol' => $sellerAsset->symbol,

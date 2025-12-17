@@ -4,12 +4,20 @@ import { useRouter } from 'vue-router'
 import { tradingStore } from '../stores/tradingStore'
 import apiClient from '../api/client'
 import OrderForm from './OrderForm.vue'
+import Toast from './Toast.vue'
+import TradesModal from './TradesModal.vue'
 
 const router = useRouter()
-const { state, openOrders, filledOrders, cancelledOrders, fetchProfile, fetchOrders, fetchOrderbook, cancelOrder, subscribeToUserChannel, unsubscribeFromUserChannel, clearAuth } = tradingStore
+const { state, openOrders, filledOrders, cancelledOrders, fetchProfile, fetchOrders, fetchOrderbook, cancelOrder, subscribeToUserChannel, unsubscribeFromUserChannel, clearAuth, showToast, clearToast } = tradingStore
 
 const selectedSymbol = ref('BTC')
 const cancellingId = ref(null)
+const showTradesModal = ref(false)
+
+// Order filters
+const filterSymbol = ref('')
+const filterSide = ref('')
+const filterStatus = ref('')
 
 const statusLabels = { 1: 'Open', 2: 'Filled', 3: 'Cancelled' }
 const statusColors = { 1: 'text-yellow-400', 2: 'text-green-400', 3: 'text-gray-400' }
@@ -18,13 +26,23 @@ async function handleCancel(orderId) {
   cancellingId.value = orderId
   try {
     await cancelOrder(orderId)
+    showToast('Order cancelled', 'success')
+  } catch (e) {
+    showToast('Failed to cancel order', 'error')
   } finally {
     cancellingId.value = null
   }
 }
 
 function loadOrders() {
-  fetchOrders(selectedSymbol.value)
+  const filters = {}
+  if (filterSymbol.value) filters.symbol = filterSymbol.value
+  if (filterSide.value) filters.side = filterSide.value
+  if (filterStatus.value) filters.status = filterStatus.value
+  fetchOrders(filters)
+}
+
+function loadOrderbook() {
   fetchOrderbook(selectedSymbol.value)
 }
 
@@ -52,6 +70,7 @@ onMounted(async () => {
     console.log('[Dashboard] ❌ state.user is null/undefined, cannot subscribe')
   }
   loadOrders()
+  loadOrderbook()
 })
 
 onUnmounted(() => {
@@ -62,6 +81,15 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <!-- Toast -->
+  <Toast
+    v-if="state.toast"
+    :key="state.toast.id"
+    :message="state.toast.message"
+    :type="state.toast.type"
+    @close="clearToast"
+  />
+
   <div class="min-h-screen bg-gray-900 text-white p-6">
     <div class="max-w-6xl mx-auto">
       <div class="flex justify-between items-center mb-8">
@@ -107,17 +135,17 @@ onUnmounted(() => {
           </div>
 
           <!-- Order Form -->
-          <OrderForm />
+          <OrderForm @orderPlaced="loadOrders(); loadOrderbook()" />
         </div>
 
         <!-- Right Column: Orderbook + Orders -->
         <div class="lg:col-span-2 space-y-6">
-          <!-- Symbol Selector -->
+          <!-- Symbol Selector for Orderbook -->
           <div class="flex gap-2">
             <button
               v-for="sym in ['BTC', 'ETH']"
               :key="sym"
-              @click="selectedSymbol = sym; loadOrders()"
+              @click="selectedSymbol = sym; loadOrderbook()"
               :class="[
                 'px-4 py-2 rounded font-medium transition-colors',
                 selectedSymbol === sym
@@ -182,7 +210,54 @@ onUnmounted(() => {
 
           <!-- Orders List -->
           <div class="bg-gray-800 rounded-lg p-6">
-            <h2 class="text-xl font-semibold mb-4">My Orders</h2>
+            <div class="flex justify-between items-center mb-4">
+              <h2 class="text-xl font-semibold">Order History</h2>
+              <button
+                @click="showTradesModal = true"
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
+              >
+                Trades & Commissions
+              </button>
+            </div>
+            
+            <!-- Filters -->
+            <div class="flex flex-wrap gap-3 mb-4">
+              <select
+                v-model="filterSymbol"
+                @change="loadOrders"
+                class="bg-gray-700 text-white text-sm rounded px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Symbols</option>
+                <option value="BTC">BTC</option>
+                <option value="ETH">ETH</option>
+              </select>
+              <select
+                v-model="filterSide"
+                @change="loadOrders"
+                class="bg-gray-700 text-white text-sm rounded px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Sides</option>
+                <option value="buy">Buy</option>
+                <option value="sell">Sell</option>
+              </select>
+              <select
+                v-model="filterStatus"
+                @change="loadOrders"
+                class="bg-gray-700 text-white text-sm rounded px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Status</option>
+                <option value="1">Open</option>
+                <option value="2">Filled</option>
+                <option value="3">Cancelled</option>
+              </select>
+              <button
+                v-if="filterSymbol || filterSide || filterStatus"
+                @click="filterSymbol = ''; filterSide = ''; filterStatus = ''; loadOrders()"
+                class="text-sm text-gray-400 hover:text-white"
+              >
+                Clear filters
+              </button>
+            </div>
             
             <div v-if="state.isLoading" class="text-gray-400">Loading...</div>
             <div v-else-if="state.orders.length === 0" class="text-gray-500">No orders</div>
@@ -228,4 +303,7 @@ onUnmounted(() => {
       </div>
     </div>
   </div>
+
+  <!-- Trades Modal -->
+  <TradesModal :visible="showTradesModal" @close="showTradesModal = false" />
 </template>

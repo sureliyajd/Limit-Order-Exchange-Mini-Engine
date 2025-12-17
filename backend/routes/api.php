@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\TradeController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
@@ -19,4 +20,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/orderbook', [OrderController::class, 'orderbook']);
     Route::post('/orders', [OrderController::class, 'store']);
     Route::post('/orders/{id}/cancel', [OrderController::class, 'cancel']);
+
+    Route::get('/trades', [TradeController::class, 'index']);
+    Route::get('/trades/summary', [TradeController::class, 'summary']);
 });

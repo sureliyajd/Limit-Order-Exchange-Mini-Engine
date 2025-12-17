@@ -18,10 +18,10 @@ class OrderController extends Controller
 
     public function index(Request $request): AnonymousResourceCollection
     {
-        $symbol = $request->query('symbol');
-
         $orders = Order::where('user_id', $request->user()->id)
-            ->when($symbol, fn($q) => $q->where('symbol', $symbol))
+            ->when($request->query('symbol'), fn($q, $v) => $q->where('symbol', $v))
+            ->when($request->query('side'), fn($q, $v) => $q->where('side', $v))
+            ->when($request->query('status'), fn($q, $v) => $q->where('status', $v))
             ->orderBy('created_at', 'desc')
             ->get();
 

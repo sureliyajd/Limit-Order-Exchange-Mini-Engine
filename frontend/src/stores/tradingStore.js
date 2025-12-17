@@ -10,7 +10,17 @@ const state = reactive({
   orderbook: [],
   isAuthenticated: false,
   isLoading: false,
+  toast: null, // { message, type }
 })
+
+// Toast helper
+function showToast(message, type = 'info') {
+  state.toast = { message, type, id: Date.now() }
+}
+
+function clearToast() {
+  state.toast = null
+}
 
 // Computed getters
 const getAsset = (symbol) => {
@@ -36,10 +46,10 @@ async function fetchProfile() {
   }
 }
 
-async function fetchOrders(symbol) {
+async function fetchOrders(filters = {}) {
   state.isLoading = true
   try {
-    const { data } = await apiClient.get('/orders', { params: { symbol } })
+    const { data } = await apiClient.get('/orders', { params: filters })
     state.orders = data.data
   } finally {
     state.isLoading = false
@@ -93,34 +103,14 @@ function subscribeToUserChannel(userId) {
 
   userChannel.listen('OrderMatched', (event) => {
     console.log('[WS] 📨 OrderMatched event received:', event)
-    console.log('[WS] Current orders in state:', state.orders.map(o => ({ id: o.id, status: o.status })))
     
     if (!state.user) return
     
-    // Check both buyer and seller data - user could be either
-    // Also check by matching order ID even if not in state yet (for immediate matches)
-    let userData = [event.buyer, event.seller].find((data) => {
-      if (!data || !data.order) return false
-      return state.orders.some((o) => o.id === data.order.id)
-    })
+    // Find the current user's data by user_id
+    const userData = [event.buyer, event.seller].find((data) => data?.user_id === state.user.id)
     
-    // If not found in orders, this user's order might have matched immediately
-    // In this case, add the order to state and use that data
     if (!userData) {
-      userData = [event.buyer, event.seller].find((data) => data && data.order)
-      if (userData) {
-        console.log('[WS] Order not in state, checking if we should add it')
-        // Add the matched order to state with FILLED status
-        const existingOrder = state.orders.find(o => o.id === userData.order.id)
-        if (!existingOrder) {
-          // This is likely the order we just placed that matched immediately
-          // We'll update when we find it, or it will be added via placeOrder response
-        }
-      }
-    }
-
-    if (!userData) {
-      console.log('[WS] No matching order found for current user')
+      console.log('[WS] No matching data for current user')
       return
     }
     
@@ -147,6 +137,12 @@ function subscribeToUserChannel(userId) {
       if (index !== -1) {
         state.orders[index] = { ...state.orders[index], status: 2 } // FILLED status
       }
+    }
+
+    // Show toast notification
+    const trade = event.trade
+    if (trade) {
+      showToast(`Order matched! ${trade.amount} ${trade.symbol} @ $${trade.price}`, 'success')
     }
   })
 }
@@ -190,4 +186,6 @@ export const tradingStore = {
   unsubscribeFromUserChannel,
   setAuthToken,
   clearAuth,
+  showToast,
+  clearToast,
 }
