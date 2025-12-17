@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\OrderMatched;
 use App\Models\Asset;
 use App\Models\Order;
 use App\Models\Trade;
@@ -26,7 +27,9 @@ class MatchingEngineService
      */
     public function match(Order $order): ?Trade
     {
-        return DB::transaction(function () use ($order) {
+        $broadcastData = null;
+
+        $trade = DB::transaction(function () use ($order, &$broadcastData) {
             // Lock and refresh the incoming order
             $order = Order::lockForUpdate()->find($order->id);
 
@@ -103,7 +106,7 @@ class MatchingEngineService
             $sellOrder->save();
 
             // Create trade record
-            return Trade::create([
+            $trade = Trade::create([
                 'buy_order_id' => $buyOrder->id,
                 'sell_order_id' => $sellOrder->id,
                 'symbol' => $order->symbol,
@@ -112,7 +115,63 @@ class MatchingEngineService
                 'usd_volume' => $usdVolume,
                 'commission' => $commission,
             ]);
+
+            // Prepare broadcast data (serializable arrays, no models)
+            $broadcastData = [
+                'buyerId' => $buyer->id,
+                'sellerId' => $seller->id,
+                'trade' => [
+                    'id' => $trade->id,
+                    'symbol' => $trade->symbol,
+                    'price' => $trade->price,
+                    'amount' => $trade->amount,
+                    'usd_volume' => $trade->usd_volume,
+                    'commission' => $trade->commission,
+                    'created_at' => $trade->created_at->toISOString(),
+                ],
+                'buyerData' => [
+                    'balance' => $buyer->balance,
+                    'asset' => [
+                        'symbol' => $buyerAsset->symbol,
+                        'amount' => $buyerAsset->amount,
+                        'locked_amount' => $buyerAsset->locked_amount,
+                    ],
+                    'order' => [
+                        'id' => $buyOrder->id,
+                        'status' => $buyOrder->status,
+                    ],
+                ],
+                'sellerData' => [
+                    'balance' => $seller->balance,
+                    'asset' => [
+                        'symbol' => $sellerAsset->symbol,
+                        'amount' => $sellerAsset->amount,
+                        'locked_amount' => $sellerAsset->locked_amount,
+                    ],
+                    'order' => [
+                        'id' => $sellOrder->id,
+                        'status' => $sellOrder->status,
+                    ],
+                ],
+            ];
+
+            return $trade;
         });
+
+        // Dispatch event AFTER transaction commit
+        if ($trade && $broadcastData) {
+            DB::afterCommit(function () use ($broadcastData) {
+                OrderMatched::dispatch(
+                    $broadcastData['buyerId'],
+                    $broadcastData['sellerId'],
+                    $broadcastData['trade'],
+                    $broadcastData['buyerData'],
+                    $broadcastData['sellerData']
+                );
+            });
+        }
+
+        return $trade;
     }
 
     private function findCounterOrder(Order $order): ?Order
