@@ -13,7 +13,6 @@ jobs:
     env:
       LARAVEL_DIR: backend
       APP_DIR: /var/www/trading-engine
-      DEPLOY_SCRIPT: /opt/trading-engine/deploy.sh
       LOG_FILE: /var/www/trading-engine/storage/logs/laravel.log
       DEPLOY_TEMP_DIR: /tmp/deploy_${{ github.run_id }}
 
@@ -107,7 +106,7 @@ jobs:
           "
         shell: bash
 
-      - name: Remote deploy (move files, set ownership, run deploy script)
+      - name: Remote deploy
         run: |
           set -e
 
@@ -116,13 +115,10 @@ jobs:
           REMOTE_CMD="
             set -e;
 
-            echo '=== Step 1: Reload systemd daemon ===';
-            sudo systemctl daemon-reload;
-
-            echo '=== Step 2: Create app directory if not exists ===';
+            echo '=== Step 1: Create app directory if not exists ===';
             sudo mkdir -p '${APP_DIR}';
 
-            echo '=== Step 3: Sync from temp dir to app dir ===';
+            echo '=== Step 2: Sync from temp dir to app dir ===';
             sudo rsync -a --delete \
               --exclude='storage/logs/*' \
               --exclude='storage/framework/cache/*' \
@@ -131,10 +127,10 @@ jobs:
               --exclude='.env' \
               '${DEPLOY_TEMP_DIR}/' '${APP_DIR}/';
 
-            echo '=== Step 4: Set ownership to www-data ===';
+            echo '=== Step 3: Set ownership to www-data ===';
             sudo chown -R www-data:www-data '${APP_DIR}';
 
-            echo '=== Step 5: Ensure storage directories exist with correct permissions ===';
+            echo '=== Step 4: Ensure storage directories exist with correct permissions ===';
             sudo mkdir -p '${APP_DIR}/storage/logs';
             sudo mkdir -p '${APP_DIR}/storage/framework/cache';
             sudo mkdir -p '${APP_DIR}/storage/framework/sessions';
@@ -143,18 +139,21 @@ jobs:
             sudo chown -R www-data:www-data '${APP_DIR}/storage' '${APP_DIR}/bootstrap/cache';
             sudo chmod -R 775 '${APP_DIR}/storage' '${APP_DIR}/bootstrap/cache';
 
-            echo '=== Step 6: Verify deploy script exists ===';
-            if [ ! -f '${DEPLOY_SCRIPT}' ]; then
-              echo '❌ ERROR: Deploy script not found at ${DEPLOY_SCRIPT}';
-              echo 'Please create the deploy script on the server.';
-              exit 1;
-            fi;
+            echo '=== Step 5: Install composer dependencies ===';
+            cd '${APP_DIR}';
+            sudo -u www-data composer install --no-dev --optimize-autoloader;
 
-            echo '=== Step 7: Make deploy script executable ===';
-            sudo chmod +x '${DEPLOY_SCRIPT}';
+            echo '=== Step 6: Run Laravel optimizations ===';
+            sudo -u www-data php artisan config:cache;
+            sudo -u www-data php artisan route:cache;
+            sudo -u www-data php artisan view:cache;
 
-            echo '=== Step 8: Run deploy script ===';
-            sudo bash '${DEPLOY_SCRIPT}';
+            echo '=== Step 7: Run migrations ===';
+            sudo -u www-data php artisan migrate --force;
+
+            echo '=== Step 8: Reload services ===';
+            sudo systemctl reload php8.2-fpm || sudo systemctl reload php-fpm || true;
+            sudo systemctl reload nginx || true;
 
             echo '=== Step 9: Cleanup temp directory ===';
             rm -rf '${DEPLOY_TEMP_DIR}';
@@ -197,10 +196,9 @@ jobs:
           echo "============================================="
           echo ""
           echo "Common issues to check:"
-          echo "  1. Is the deploy script (${DEPLOY_SCRIPT}) correctly configured?"
-          echo "  2. Does the .env file exist at ${APP_DIR}/.env?"
-          echo "  3. Are the correct PHP version and extensions installed?"
-          echo "  4. Are Redis/MySQL services running?"
+          echo "  1. Does the .env file exist at ${APP_DIR}/.env?"
+          echo "  2. Are the correct PHP version and extensions installed?"
+          echo "  3. Is MySQL/database service running?"
           echo ""
           echo "To view Laravel logs:"
           echo "  ssh -p ${{ secrets.SERVER_SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} \"tail -100 ${LOG_FILE}\""
