@@ -3,8 +3,8 @@ import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
-  plugins: [vue(), tailwindcss()],
   base: '/Limit-Order-Exchange-Mini-Engine/',
+  plugins: [vue(), tailwindcss()],
   server: {
     proxy: {
       '/api': {
