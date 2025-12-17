@@ -20,6 +20,18 @@ class OrderController extends Controller
     {
         $symbol = $request->query('symbol');
 
+        $orders = Order::where('user_id', $request->user()->id)
+            ->when($symbol, fn($q) => $q->where('symbol', $symbol))
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return OrderResource::collection($orders);
+    }
+
+    public function orderbook(Request $request): AnonymousResourceCollection
+    {
+        $symbol = $request->query('symbol');
+
         $orders = Order::where('status', Order::STATUS_OPEN)
             ->when($symbol, fn($q) => $q->where('symbol', $symbol))
             ->orderByRaw("CASE WHEN side = 'buy' THEN price END DESC")

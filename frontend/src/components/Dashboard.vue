@@ -6,7 +6,7 @@ import apiClient from '../api/client'
 import OrderForm from './OrderForm.vue'
 
 const router = useRouter()
-const { state, openOrders, filledOrders, cancelledOrders, fetchProfile, fetchOrders, cancelOrder, subscribeToUserChannel, unsubscribeFromUserChannel, clearAuth } = tradingStore
+const { state, openOrders, filledOrders, cancelledOrders, fetchProfile, fetchOrders, fetchOrderbook, cancelOrder, subscribeToUserChannel, unsubscribeFromUserChannel, clearAuth } = tradingStore
 
 const selectedSymbol = ref('BTC')
 const cancellingId = ref(null)
@@ -25,6 +25,7 @@ async function handleCancel(orderId) {
 
 function loadOrders() {
   fetchOrders(selectedSymbol.value)
+  fetchOrderbook(selectedSymbol.value)
 }
 
 async function handleLogout() {
@@ -131,14 +132,14 @@ onUnmounted(() => {
                     <span>Amount</span>
                   </div>
                   <div
-                    v-for="order in openOrders.filter(o => o.side === 'buy' && o.symbol === selectedSymbol)"
+                    v-for="order in state.orderbook.filter(o => o.side === 'buy' && o.symbol === selectedSymbol)"
                     :key="order.id"
                     class="flex justify-between text-green-400"
                   >
                     <span>{{ order.price }}</span>
                     <span>{{ order.amount }}</span>
                   </div>
-                  <div v-if="openOrders.filter(o => o.side === 'buy' && o.symbol === selectedSymbol).length === 0" class="text-gray-500">
+                  <div v-if="state.orderbook.filter(o => o.side === 'buy' && o.symbol === selectedSymbol).length === 0" class="text-gray-500">
                     No buy orders
                   </div>
                 </div>
@@ -153,14 +154,14 @@ onUnmounted(() => {
                     <span>Amount</span>
                   </div>
                   <div
-                    v-for="order in openOrders.filter(o => o.side === 'sell' && o.symbol === selectedSymbol)"
+                    v-for="order in state.orderbook.filter(o => o.side === 'sell' && o.symbol === selectedSymbol)"
                     :key="order.id"
                     class="flex justify-between text-red-400"
                   >
                     <span>{{ order.price }}</span>
                     <span>{{ order.amount }}</span>
                   </div>
-                  <div v-if="openOrders.filter(o => o.side === 'sell' && o.symbol === selectedSymbol).length === 0" class="text-gray-500">
+                  <div v-if="state.orderbook.filter(o => o.side === 'sell' && o.symbol === selectedSymbol).length === 0" class="text-gray-500">
                     No sell orders
                   </div>
                 </div>

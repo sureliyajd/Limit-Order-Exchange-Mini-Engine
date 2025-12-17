@@ -7,6 +7,7 @@ const state = reactive({
   balance: '0.00000000',
   assets: [],
   orders: [],
+  orderbook: [],
   isAuthenticated: false,
   isLoading: false,
 })
@@ -44,6 +45,15 @@ async function fetchOrders(symbol) {
   }
 }
 
+async function fetchOrderbook(symbol) {
+  try {
+    const { data } = await apiClient.get('/orderbook', { params: { symbol } })
+    state.orderbook = data.data
+  } catch (e) {
+    state.orderbook = []
+  }
+}
+
 async function placeOrder(orderData) {
   const { data } = await apiClient.post('/orders', orderData)
   state.orders.unshift(data.data)
@@ -71,28 +81,47 @@ function subscribeToUserChannel(userId) {
   userChannel = echo.private(`user.${userId}`)
 
   userChannel.listen('OrderMatched', (event) => {
-    // Update balance directly from event payload
-    if (event.balance !== undefined) {
-      state.balance = event.balance
+    // Determine if current user is buyer or seller
+    const isBuyer = event.buyer && state.user && event.buyer.order
+    const isSeller = event.seller && state.user && event.seller.order
+    
+    // Get user-specific data (check which order belongs to current user)
+    let userData = null
+    if (isBuyer) {
+      const buyerOrderIndex = state.orders.findIndex((o) => o.id === event.buyer.order.id)
+      if (buyerOrderIndex !== -1) {
+        userData = event.buyer
+      }
+    }
+    if (!userData && isSeller) {
+      const sellerOrderIndex = state.orders.findIndex((o) => o.id === event.seller.order.id)
+      if (sellerOrderIndex !== -1) {
+        userData = event.seller
+      }
     }
 
-    // Update assets directly from event payload
-    if (event.assets) {
-      event.assets.forEach((updatedAsset) => {
-        const index = state.assets.findIndex((a) => a.symbol === updatedAsset.symbol)
-        if (index !== -1) {
-          state.assets[index] = { ...state.assets[index], ...updatedAsset }
-        } else {
-          state.assets.push(updatedAsset)
-        }
-      })
+    if (!userData) return
+
+    // Update balance
+    if (userData.balance !== undefined) {
+      state.balance = userData.balance
     }
 
-    // Update order status directly from event payload
-    if (event.order) {
-      const index = state.orders.findIndex((o) => o.id === event.order.id)
+    // Update asset
+    if (userData.asset) {
+      const index = state.assets.findIndex((a) => a.symbol === userData.asset.symbol)
       if (index !== -1) {
-        state.orders[index] = { ...state.orders[index], ...event.order }
+        state.assets[index] = { ...state.assets[index], ...userData.asset }
+      } else {
+        state.assets.push(userData.asset)
+      }
+    }
+
+    // Update order status
+    if (userData.order) {
+      const index = state.orders.findIndex((o) => o.id === userData.order.id)
+      if (index !== -1) {
+        state.orders[index] = { ...state.orders[index], status: 2 } // FILLED status
       }
     }
   })
@@ -118,6 +147,7 @@ function clearAuth() {
   state.balance = '0.00000000'
   state.assets = []
   state.orders = []
+  state.orderbook = []
   state.isAuthenticated = false
 }
 
@@ -129,6 +159,7 @@ export const tradingStore = {
   cancelledOrders,
   fetchProfile,
   fetchOrders,
+  fetchOrderbook,
   placeOrder,
   cancelOrder,
   subscribeToUserChannel,

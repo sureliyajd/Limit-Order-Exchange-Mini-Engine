@@ -56,13 +56,18 @@ class OrderService
         $price = (string) $price;
         $amount = (string) $amount;
 
-        return DB::transaction(function () use ($user, $symbol, $side, $price, $amount) {
+        $order = DB::transaction(function () use ($user, $symbol, $side, $price, $amount) {
             if ($side === Order::SIDE_BUY) {
                 return $this->placeBuyOrder($user, $symbol, $price, $amount);
             }
 
             return $this->placeSellOrder($user, $symbol, $price, $amount);
         });
+
+        // Trigger matching engine after order is committed
+        $this->matchingEngine->match($order);
+
+        return $order;
     }
 
     private function placeBuyOrder(User $user, string $symbol, string $price, string $amount): Order
