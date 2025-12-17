@@ -128,10 +128,56 @@ class OrderService
      * @param User $user The authenticated user cancelling the order
      * @param int $orderId The ID of the order to cancel
      * @return Order The cancelled order
-     * @throws LogicException
+     * @throws InvalidArgumentException
      */
     public function cancelOrder(User $user, int $orderId): Order
     {
-        throw new LogicException('Not implemented');
+        return DB::transaction(function () use ($user, $orderId) {
+            // Lock the order row
+            $order = Order::lockForUpdate()->find($orderId);
+
+            if (!$order) {
+                throw new InvalidArgumentException('Order not found');
+            }
+
+            if ($order->user_id !== $user->id) {
+                throw new InvalidArgumentException('Order does not belong to user');
+            }
+
+            if ($order->status !== Order::STATUS_OPEN) {
+                throw new InvalidArgumentException('Only open orders can be cancelled');
+            }
+
+            if ($order->side === Order::SIDE_BUY) {
+                $this->refundBuyOrder($order);
+            } else {
+                $this->refundSellOrder($order);
+            }
+
+            $order->status = Order::STATUS_CANCELLED;
+            $order->save();
+
+            return $order;
+        });
+    }
+
+    private function refundBuyOrder(Order $order): void
+    {
+        $user = User::lockForUpdate()->find($order->user_id);
+        $refundAmount = bcmul($order->price, $order->amount, 8);
+        $user->balance = bcadd($user->balance, $refundAmount, 8);
+        $user->save();
+    }
+
+    private function refundSellOrder(Order $order): void
+    {
+        $asset = Asset::lockForUpdate()
+            ->where('user_id', $order->user_id)
+            ->where('symbol', $order->symbol)
+            ->first();
+
+        $asset->locked_amount = bcsub($asset->locked_amount, $order->amount, 8);
+        $asset->amount = bcadd($asset->amount, $order->amount, 8);
+        $asset->save();
     }
 }
