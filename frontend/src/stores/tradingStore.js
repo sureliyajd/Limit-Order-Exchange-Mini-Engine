@@ -26,9 +26,10 @@ async function fetchProfile() {
   state.isLoading = true
   try {
     const { data } = await apiClient.get('/profile')
-    state.user = data.data.user
+    // API returns { data: { id, name, email, balance, assets } }
+    state.user = { id: data.data.id, name: data.data.name, email: data.data.email }
     state.balance = data.data.balance
-    state.assets = data.data.assets
+    state.assets = data.data.assets || []
     state.isAuthenticated = true
   } finally {
     state.isLoading = false
@@ -73,14 +74,25 @@ async function cancelOrder(orderId) {
 let userChannel = null
 
 function subscribeToUserChannel(userId) {
+  console.log('[WS] Subscribing to user channel:', userId)
+  
   if (userChannel) {
     userChannel.stopListening('OrderMatched')
     echo.leave(`private-user.${userId}`)
   }
 
   userChannel = echo.private(`user.${userId}`)
+  
+  userChannel.subscribed(() => {
+    console.log('[WS] ✅ Successfully subscribed to private-user.' + userId)
+  })
+  
+  userChannel.error((error) => {
+    console.error('[WS] ❌ Subscription error:', error)
+  })
 
   userChannel.listen('OrderMatched', (event) => {
+    console.log('[WS] 📨 OrderMatched event received:', event)
     // Determine if current user is buyer or seller
     const isBuyer = event.buyer && state.user && event.buyer.order
     const isSeller = event.seller && state.user && event.seller.order

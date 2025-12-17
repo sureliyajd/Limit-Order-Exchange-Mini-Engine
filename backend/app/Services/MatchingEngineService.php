@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\Trade;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class MatchingEngineService
 {
@@ -160,7 +161,14 @@ class MatchingEngineService
 
         // Dispatch event AFTER transaction commit
         if ($trade && $broadcastData) {
+            Log::info('TRADE MATCHED - dispatching event', [
+                'trade_id' => $trade->id,
+                'buyer_id' => $broadcastData['buyerId'],
+                'seller_id' => $broadcastData['sellerId'],
+            ]);
+            
             DB::afterCommit(function () use ($broadcastData) {
+                Log::info('DB::afterCommit - dispatching OrderMatched event');
                 OrderMatched::dispatch(
                     $broadcastData['buyerId'],
                     $broadcastData['sellerId'],
@@ -168,6 +176,7 @@ class MatchingEngineService
                     $broadcastData['buyerData'],
                     $broadcastData['sellerData']
                 );
+                Log::info('OrderMatched event dispatched');
             });
         }
 

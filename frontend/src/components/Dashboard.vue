@@ -42,9 +42,14 @@ async function handleLogout() {
 }
 
 onMounted(async () => {
+  console.log('[Dashboard] onMounted - fetching profile')
   await fetchProfile()
+  console.log('[Dashboard] Profile fetched, state.user:', state.user)
   if (state.user) {
+    console.log('[Dashboard] Calling subscribeToUserChannel with id:', state.user.id)
     subscribeToUserChannel(state.user.id)
+  } else {
+    console.log('[Dashboard] ❌ state.user is null/undefined, cannot subscribe')
   }
   loadOrders()
 })
