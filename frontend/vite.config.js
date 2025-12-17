@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
+  base: '/Limit-Order-Exchange-Mini-Engine/',
   server: {
     proxy: {
       '/api': {
