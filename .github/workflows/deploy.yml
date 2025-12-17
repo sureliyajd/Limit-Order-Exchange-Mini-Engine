@@ -1,0 +1,210 @@
+name: Deploy Laravel to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+
+    env:
+      LARAVEL_DIR: backend
+      APP_DIR: /var/www/trading-engine
+      DEPLOY_SCRIPT: /opt/trading-engine/deploy.sh
+      LOG_FILE: /var/www/trading-engine/storage/logs/laravel.log
+      DEPLOY_TEMP_DIR: /tmp/deploy_${{ github.run_id }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install rsync and SSH client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rsync openssh-client
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa_ci
+          chmod 600 ~/.ssh/id_rsa_ci
+        shell: bash
+
+      - name: Verify Laravel directory exists locally
+        run: |
+          if [ ! -f "${LARAVEL_DIR}/composer.json" ]; then
+            echo "❌ ERROR: composer.json not found in ${LARAVEL_DIR}/"
+            echo "Please set LARAVEL_DIR env variable to the correct path."
+            echo "Current directory contents:"
+            ls -la
+            exit 1
+          fi
+          echo "✅ Found Laravel app in ${LARAVEL_DIR}/"
+          echo "Files to deploy:"
+          ls -la "${LARAVEL_DIR}/"
+        shell: bash
+
+      - name: Upload code to EC2 with rsync (with retries)
+        run: |
+          set -e
+
+          SSH_OPTS="-i ~/.ssh/id_rsa_ci -o StrictHostKeyChecking=no -p ${{ secrets.SERVER_SSH_PORT }}"
+
+          RSYNC_CMD="rsync -avz --delete \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='vendor' \
+            --exclude='.env' \
+            --exclude='storage/logs/*' \
+            --exclude='storage/framework/cache/*' \
+            --exclude='storage/framework/sessions/*' \
+            --exclude='storage/framework/views/*' \
+            --exclude='tests' \
+            --exclude='*.log' \
+            --exclude='*.cache' \
+            --exclude='database/*.sqlite' \
+            -e \"ssh $SSH_OPTS\" \
+            ${LARAVEL_DIR}/ ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}:${DEPLOY_TEMP_DIR}/"
+
+          echo "Running rsync to upload ${LARAVEL_DIR}/ to ${DEPLOY_TEMP_DIR} on EC2..."
+
+          n=0
+          until [ $n -ge 3 ]; do
+            eval "$RSYNC_CMD" && break
+            n=$((n+1))
+            echo "rsync failed (attempt $n/3). Retrying in 5 seconds..."
+            sleep 5
+          done
+
+          if [ $n -ge 3 ]; then
+            echo "❌ rsync failed after 3 attempts."
+            exit 1
+          fi
+
+          echo "✅ Code uploaded successfully."
+        shell: bash
+
+      - name: Verify upload and list remote files
+        run: |
+          SSH_OPTS="-i ~/.ssh/id_rsa_ci -o StrictHostKeyChecking=no -p ${{ secrets.SERVER_SSH_PORT }}"
+
+          echo "Verifying uploaded files on EC2..."
+          ssh $SSH_OPTS ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
+            echo '--- Files in ${DEPLOY_TEMP_DIR} ---';
+            ls -la '${DEPLOY_TEMP_DIR}/';
+            echo '';
+            if [ -f '${DEPLOY_TEMP_DIR}/composer.json' ]; then
+              echo '✅ composer.json found in upload directory';
+            else
+              echo '❌ ERROR: composer.json NOT found in ${DEPLOY_TEMP_DIR}/';
+              echo 'This means rsync did not upload the Laravel files correctly.';
+              exit 1;
+            fi
+          "
+        shell: bash
+
+      - name: Remote deploy (move files, set ownership, run deploy script)
+        run: |
+          set -e
+
+          SSH_OPTS="-i ~/.ssh/id_rsa_ci -o StrictHostKeyChecking=no -p ${{ secrets.SERVER_SSH_PORT }}"
+
+          REMOTE_CMD="
+            set -e;
+
+            echo '=== Step 1: Reload systemd daemon ===';
+            sudo systemctl daemon-reload;
+
+            echo '=== Step 2: Create app directory if not exists ===';
+            sudo mkdir -p '${APP_DIR}';
+
+            echo '=== Step 3: Sync from temp dir to app dir ===';
+            sudo rsync -a --delete \
+              --exclude='storage/logs/*' \
+              --exclude='storage/framework/cache/*' \
+              --exclude='storage/framework/sessions/*' \
+              --exclude='storage/framework/views/*' \
+              --exclude='.env' \
+              '${DEPLOY_TEMP_DIR}/' '${APP_DIR}/';
+
+            echo '=== Step 4: Set ownership to www-data ===';
+            sudo chown -R www-data:www-data '${APP_DIR}';
+
+            echo '=== Step 5: Ensure storage directories exist with correct permissions ===';
+            sudo mkdir -p '${APP_DIR}/storage/logs';
+            sudo mkdir -p '${APP_DIR}/storage/framework/cache';
+            sudo mkdir -p '${APP_DIR}/storage/framework/sessions';
+            sudo mkdir -p '${APP_DIR}/storage/framework/views';
+            sudo mkdir -p '${APP_DIR}/bootstrap/cache';
+            sudo chown -R www-data:www-data '${APP_DIR}/storage' '${APP_DIR}/bootstrap/cache';
+            sudo chmod -R 775 '${APP_DIR}/storage' '${APP_DIR}/bootstrap/cache';
+
+            echo '=== Step 6: Verify deploy script exists ===';
+            if [ ! -f '${DEPLOY_SCRIPT}' ]; then
+              echo '❌ ERROR: Deploy script not found at ${DEPLOY_SCRIPT}';
+              echo 'Please create the deploy script on the server.';
+              exit 1;
+            fi;
+
+            echo '=== Step 7: Make deploy script executable ===';
+            sudo chmod +x '${DEPLOY_SCRIPT}';
+
+            echo '=== Step 8: Run deploy script ===';
+            sudo bash '${DEPLOY_SCRIPT}';
+
+            echo '=== Step 9: Cleanup temp directory ===';
+            rm -rf '${DEPLOY_TEMP_DIR}';
+
+            echo '✅ Deployment completed successfully!';
+          "
+
+          echo "Running remote deploy on EC2..."
+          ssh $SSH_OPTS ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "$REMOTE_CMD"
+        shell: bash
+
+      - name: Post-deploy info
+        if: success()
+        run: |
+          echo "============================================="
+          echo "✅ DEPLOYMENT COMPLETED SUCCESSFULLY"
+          echo "============================================="
+          echo ""
+          echo "To tail Laravel logs from your local machine, run:"
+          echo "  ssh -p ${{ secrets.SERVER_SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} \"tail -f ${LOG_FILE}\""
+          echo ""
+          echo "To SSH into the server:"
+          echo "  ssh -p ${{ secrets.SERVER_SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}"
+        shell: bash
+
+      - name: Cleanup on failure
+        if: failure()
+        run: |
+          SSH_OPTS="-i ~/.ssh/id_rsa_ci -o StrictHostKeyChecking=no -p ${{ secrets.SERVER_SSH_PORT }}"
+
+          echo "Cleaning up temp directory on failure..."
+          ssh $SSH_OPTS ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "rm -rf '${DEPLOY_TEMP_DIR}'" || true
+        shell: bash
+
+      - name: Post-deploy failure info
+        if: failure()
+        run: |
+          echo "============================================="
+          echo "❌ DEPLOYMENT FAILED"
+          echo "============================================="
+          echo ""
+          echo "Common issues to check:"
+          echo "  1. Is the deploy script (${DEPLOY_SCRIPT}) correctly configured?"
+          echo "  2. Does the .env file exist at ${APP_DIR}/.env?"
+          echo "  3. Are the correct PHP version and extensions installed?"
+          echo "  4. Are Redis/MySQL services running?"
+          echo ""
+          echo "To view Laravel logs:"
+          echo "  ssh -p ${{ secrets.SERVER_SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} \"tail -100 ${LOG_FILE}\""
+          echo ""
+          echo "To SSH into the server and investigate:"
+          echo "  ssh -p ${{ secrets.SERVER_SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}"
+        shell: bash
