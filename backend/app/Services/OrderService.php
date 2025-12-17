@@ -67,7 +67,8 @@ class OrderService
         // Trigger matching engine after order is committed
         $this->matchingEngine->match($order);
 
-        return $order;
+        // Refresh to get updated status if matched
+        return $order->fresh();
     }
 
     private function placeBuyOrder(User $user, string $symbol, string $price, string $amount): Order

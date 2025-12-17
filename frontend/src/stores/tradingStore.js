@@ -93,26 +93,38 @@ function subscribeToUserChannel(userId) {
 
   userChannel.listen('OrderMatched', (event) => {
     console.log('[WS] 📨 OrderMatched event received:', event)
-    // Determine if current user is buyer or seller
-    const isBuyer = event.buyer && state.user && event.buyer.order
-    const isSeller = event.seller && state.user && event.seller.order
+    console.log('[WS] Current orders in state:', state.orders.map(o => ({ id: o.id, status: o.status })))
     
-    // Get user-specific data (check which order belongs to current user)
-    let userData = null
-    if (isBuyer) {
-      const buyerOrderIndex = state.orders.findIndex((o) => o.id === event.buyer.order.id)
-      if (buyerOrderIndex !== -1) {
-        userData = event.buyer
-      }
-    }
-    if (!userData && isSeller) {
-      const sellerOrderIndex = state.orders.findIndex((o) => o.id === event.seller.order.id)
-      if (sellerOrderIndex !== -1) {
-        userData = event.seller
+    if (!state.user) return
+    
+    // Check both buyer and seller data - user could be either
+    // Also check by matching order ID even if not in state yet (for immediate matches)
+    let userData = [event.buyer, event.seller].find((data) => {
+      if (!data || !data.order) return false
+      return state.orders.some((o) => o.id === data.order.id)
+    })
+    
+    // If not found in orders, this user's order might have matched immediately
+    // In this case, add the order to state and use that data
+    if (!userData) {
+      userData = [event.buyer, event.seller].find((data) => data && data.order)
+      if (userData) {
+        console.log('[WS] Order not in state, checking if we should add it')
+        // Add the matched order to state with FILLED status
+        const existingOrder = state.orders.find(o => o.id === userData.order.id)
+        if (!existingOrder) {
+          // This is likely the order we just placed that matched immediately
+          // We'll update when we find it, or it will be added via placeOrder response
+        }
       }
     }
 
-    if (!userData) return
+    if (!userData) {
+      console.log('[WS] No matching order found for current user')
+      return
+    }
+    
+    console.log('[WS] Updating user data:', userData)
 
     // Update balance
     if (userData.balance !== undefined) {

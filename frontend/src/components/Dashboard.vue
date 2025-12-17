@@ -65,13 +65,19 @@ onUnmounted(() => {
   <div class="min-h-screen bg-gray-900 text-white p-6">
     <div class="max-w-6xl mx-auto">
       <div class="flex justify-between items-center mb-8">
-        <h1 class="text-3xl font-bold">Trading Dashboard</h1>
-        <button
-          @click="handleLogout"
-          class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
-        >
-          Logout
-        </button>
+        <h1 class="text-3xl font-bold tracking-tight">Trading Dashboard</h1>
+        <div class="flex items-center gap-4">
+          <div v-if="state.user" class="text-right">
+            <p class="text-white font-medium">{{ state.user.name }}</p>
+            <p class="text-sm text-gray-400">{{ state.user.email }}</p>
+          </div>
+          <button
+            @click="handleLogout"
+            class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -80,7 +86,7 @@ onUnmounted(() => {
           <!-- USD Balance -->
           <div class="bg-gray-800 rounded-lg p-6">
             <h2 class="text-lg font-semibold text-gray-400 mb-2">USD Balance</h2>
-            <p class="text-3xl font-bold text-green-400">${{ state.balance }}</p>
+            <p class="text-3xl font-bold text-green-400 font-mono">${{ state.balance }}</p>
           </div>
 
           <!-- Asset Balances -->
@@ -90,7 +96,7 @@ onUnmounted(() => {
             <div v-else class="space-y-3">
               <div v-for="asset in state.assets" :key="asset.symbol" class="flex justify-between items-center">
                 <span class="font-medium">{{ asset.symbol }}</span>
-                <div class="text-right">
+                <div class="text-right font-mono">
                   <p class="text-white">{{ asset.amount }}</p>
                   <p v-if="parseFloat(asset.locked_amount) > 0" class="text-sm text-yellow-400">
                     Locked: {{ asset.locked_amount }}
@@ -131,8 +137,8 @@ onUnmounted(() => {
               <!-- Buy Orders -->
               <div>
                 <h3 class="text-green-400 font-medium mb-2">Buy Orders</h3>
-                <div class="space-y-1 text-sm">
-                  <div class="flex justify-between text-gray-500 border-b border-gray-700 pb-1">
+                <div class="space-y-1 text-sm font-mono">
+                  <div class="flex justify-between text-gray-500 border-b border-gray-700 pb-1 font-sans">
                     <span>Price</span>
                     <span>Amount</span>
                   </div>
@@ -153,8 +159,8 @@ onUnmounted(() => {
               <!-- Sell Orders -->
               <div>
                 <h3 class="text-red-400 font-medium mb-2">Sell Orders</h3>
-                <div class="space-y-1 text-sm">
-                  <div class="flex justify-between text-gray-500 border-b border-gray-700 pb-1">
+                <div class="space-y-1 text-sm font-mono">
+                  <div class="flex justify-between text-gray-500 border-b border-gray-700 pb-1 font-sans">
                     <span>Price</span>
                     <span>Amount</span>
                   </div>
@@ -181,7 +187,7 @@ onUnmounted(() => {
             <div v-if="state.isLoading" class="text-gray-400">Loading...</div>
             <div v-else-if="state.orders.length === 0" class="text-gray-500">No orders</div>
             <div v-else class="overflow-x-auto">
-              <table class="w-full text-sm">
+              <table class="w-full text-sm font-mono">
                 <thead>
                   <tr class="text-gray-400 border-b border-gray-700">
                     <th class="text-left py-2">Symbol</th>
