@@ -315,6 +315,51 @@ http://localhost:5173
 
 ---
 
+## 🧪 Automated Testing
+
+The project includes comprehensive feature tests to validate critical trading functionality.
+
+### What's Tested
+
+| Test Suite | Coverage |
+| ---------- | -------- |
+| **AuthTest** | Login, logout, token validation, unauthorized access |
+| **OrderPlacementTest** | Buy/sell order creation, balance/asset validation, input validation |
+| **OrderCancellationTest** | Order cancellation, refund logic, authorization checks |
+| **OrderMatchingTest** | Full-match execution, price crossing, commission calculation, self-match prevention |
+
+### Testing Approach
+
+* **Real database transactions** — No mocking of financial logic
+* **Real models** — Uses actual Eloquent models and relationships
+* **RefreshDatabase trait** — Clean state for each test
+* **Sanctum authentication** — Tests use `actingAs()` for auth
+
+### Running Tests
+
+```bash
+cd backend
+php artisan test
+```
+
+Or run specific test files:
+
+```bash
+php artisan test --filter=AuthTest
+php artisan test --filter=OrderMatchingTest
+```
+
+### Test Database Configuration
+
+Tests use SQLite in-memory by default. Configure in `phpunit.xml`:
+
+```xml
+<env name="DB_CONNECTION" value="sqlite"/>
+<env name="DB_DATABASE" value=":memory:"/>
+```
+
+---
+
 ## 🏁 Final Note
 
 This project was intentionally designed with **correctness and safety over shortcuts**.
