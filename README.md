@@ -209,6 +209,37 @@ The system supports **limit buy/sell orders**, **wallet balances**, **asset lock
 
 ---
 
+## 📸 Screenshots
+
+### Login Page
+
+The login page features a modern, trading-platform-style UI with a two-column layout. The left side provides an overview of platform features, while the right side contains the authentication form.
+
+![Login Page](docs/screenshots/login.png)
+
+### Trading Dashboard
+
+The main dashboard provides a comprehensive view of your trading activity, including:
+
+* **Portfolio Overview**: USD balance and crypto asset holdings (BTC, ETH)
+* **Order Placement**: Create limit buy/sell orders with real-time commission calculation
+* **Live Orderbook**: Real-time market depth for selected trading pairs
+* **Order History**: Complete order history with filtering and status tracking
+
+![Trading Dashboard](docs/screenshots/dashboard.png)
+
+### Trades & Commissions
+
+The trades modal displays platform-wide trading analytics, including:
+
+* **Summary Statistics**: Total trades, volume, and commissions
+* **Trade History**: Detailed breakdown of all executed trades
+* **Commission Tracking**: Real-time commission calculations (1.5% of trade volume)
+
+![Trades & Commissions](docs/screenshots/trades-commissions.png)
+
+---
+
 ## 🚀 Local Setup Instructions
 
 ### 📋 Prerequisites
