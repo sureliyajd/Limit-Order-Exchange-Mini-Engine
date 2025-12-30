@@ -74,13 +74,27 @@ class MatchingEngineService
             $usdVolume = bcmul($executionPrice, $amount, 8);
             $commission = bcmul($usdVolume, self::COMMISSION_RATE, 8);
 
-            // Settlement: Buyer pays commission, receives asset
-            // Buyer already locked USD when placing buy order, now deduct commission
-            $buyer->balance = bcsub($buyer->balance, $commission, 8);
+            // Settlement: Buyer already paid (order_price × amount) + commission at order price
+            // Now calculate what buyer should actually pay at execution price
+            $executionVolume = bcmul($executionPrice, $amount, 8);
+            $executionCommission = bcmul($executionVolume, self::COMMISSION_RATE, 8);
+            $actualTotalCost = bcadd($executionVolume, $executionCommission, 8);
+            
+            // Calculate what buyer already paid (at order price)
+            $orderVolume = bcmul($buyOrder->price, $amount, 8);
+            $orderCommission = bcmul($orderVolume, self::COMMISSION_RATE, 8);
+            $paidTotalCost = bcadd($orderVolume, $orderCommission, 8);
+            
+            // Refund the difference (execution price <= order price, so we always refund)
+            $refundAmount = bcsub($paidTotalCost, $actualTotalCost, 8);
+            if (bccomp($refundAmount, '0', 8) > 0) {
+                $buyer->balance = bcadd($buyer->balance, $refundAmount, 8);
+            }
             $buyer->save();
 
-            // Seller receives full USD
-            $seller->balance = bcadd($seller->balance, $usdVolume, 8);
+            // Seller receives USD volume minus commission
+            $sellerReceives = bcsub($usdVolume, $commission, 8);
+            $seller->balance = bcadd($seller->balance, $sellerReceives, 8);
             $seller->save();
 
             // Buyer receives asset

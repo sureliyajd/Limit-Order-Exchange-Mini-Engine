@@ -66,10 +66,10 @@ class OrderMatchingTest extends TestCase
 
         // USD volume = 1000 * 0.5 = 500
         // Commission = 500 * 0.015 = 7.5
-        // Buyer pays: 500 (order) + 7.5 (commission) = 507.5, so balance = 10000 - 507.5 = 9492.5
-        // Seller receives: 500
+        // Buyer pays: 500 (volume) + 7.5 (commission) = 507.5, so balance = 10000 - 507.5 = 9492.5
+        // Seller receives: 500 (volume) - 7.5 (commission) = 492.5
         $this->assertEquals('9492.50000000', $buyer->balance);
-        $this->assertEquals('500.00000000', $seller->balance);
+        $this->assertEquals('492.50000000', $seller->balance);
 
         // Verify assets
         $buyerAsset = Asset::where('user_id', $buyer->id)->where('symbol', 'BTC')->first();

@@ -13,6 +13,7 @@ use LogicException;
 class OrderService
 {
     private const ALLOWED_SYMBOLS = ['BTC', 'ETH'];
+    private const COMMISSION_RATE = '0.015';
 
     public function __construct(
         protected MatchingEngineService $matchingEngine
@@ -76,13 +77,16 @@ class OrderService
         // Lock user row
         $user = User::lockForUpdate()->find($user->id);
 
-        $totalCost = bcmul($price, $amount, 8);
+        // Calculate volume (price × amount) and commission
+        $volume = bcmul($price, $amount, 8);
+        $commission = bcmul($volume, self::COMMISSION_RATE, 8);
+        $totalCost = bcadd($volume, $commission, 8);
 
         if (bccomp($user->balance, $totalCost, 8) < 0) {
             throw new InvalidArgumentException('Insufficient USD balance');
         }
 
-        // Deduct from balance
+        // Deduct total cost (volume + commission) from balance
         $user->balance = bcsub($user->balance, $totalCost, 8);
         $user->save();
 
@@ -170,7 +174,10 @@ class OrderService
     private function refundBuyOrder(Order $order): void
     {
         $user = User::lockForUpdate()->find($order->user_id);
-        $refundAmount = bcmul($order->price, $order->amount, 8);
+        // Refund volume + commission (total cost that was deducted)
+        $volume = bcmul($order->price, $order->amount, 8);
+        $commission = bcmul($volume, self::COMMISSION_RATE, 8);
+        $refundAmount = bcadd($volume, $commission, 8);
         $user->balance = bcadd($user->balance, $refundAmount, 8);
         $user->save();
     }

@@ -28,9 +28,13 @@ class OrderPlacementTest extends TestCase
             ->assertJsonPath('data.side', 'buy')
             ->assertJsonPath('data.status', Order::STATUS_OPEN);
 
-        // Balance should be reduced by price * amount = 9500
+        // Balance should be reduced by (price * amount) + commission
+        // Volume = 95000 * 0.1 = 9500
+        // Commission = 9500 * 0.015 = 142.5
+        // Total = 9500 + 142.5 = 9642.5
+        // Balance = 10000 - 9642.5 = 357.5
         $user->refresh();
-        $this->assertEquals('500.00000000', $user->balance);
+        $this->assertEquals('357.50000000', $user->balance);
     }
 
     public function test_buy_order_fails_with_insufficient_balance(): void
