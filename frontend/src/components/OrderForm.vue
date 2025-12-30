@@ -49,19 +49,29 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="bg-gray-800 rounded-lg p-6">
-    <h2 class="text-xl font-semibold text-white mb-4">Place Order</h2>
-    
-    <form @submit.prevent="handleSubmit" class="space-y-4">
+  <div class="trading-card p-6">
+    <div class="flex items-center justify-between mb-6">
       <div>
-        <label class="block text-sm text-gray-400 mb-1">Symbol</label>
-        <select v-model="symbol" class="w-full bg-gray-700 text-white rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none">
+        <h2 class="text-xl font-bold text-white">Place Order</h2>
+        <p class="text-sm text-slate-400 mt-1">Create a limit order</p>
+      </div>
+      <div class="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+        <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+        </svg>
+      </div>
+    </div>
+    
+    <form @submit.prevent="handleSubmit" class="space-y-5">
+      <div>
+        <label class="block text-sm font-medium text-slate-300 mb-2">Symbol</label>
+        <select v-model="symbol" class="w-full bg-slate-800/50 border border-slate-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all">
           <option v-for="s in symbols" :key="s" :value="s">{{ s }}</option>
         </select>
       </div>
 
       <div>
-        <label class="block text-sm text-gray-400 mb-1">Side</label>
+        <label class="block text-sm font-medium text-slate-300 mb-2">Order Type</label>
         <div class="flex gap-2">
           <button
             v-for="s in sides"
@@ -69,10 +79,12 @@ async function handleSubmit() {
             type="button"
             @click="side = s"
             :class="[
-              'flex-1 py-2 rounded font-medium transition-colors',
+              'flex-1 py-3 rounded-lg font-semibold transition-all text-sm',
               side === s
-                ? s === 'buy' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-                : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                ? s === 'buy' 
+                  ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg shadow-green-500/25' 
+                  : 'bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-lg shadow-red-500/25'
+                : 'bg-slate-800/50 border border-slate-700 text-slate-400 hover:bg-slate-700/50 hover:text-slate-300'
             ]"
           >
             {{ s.toUpperCase() }}
@@ -81,63 +93,75 @@ async function handleSubmit() {
       </div>
 
       <div>
-        <label class="block text-sm text-gray-400 mb-1">Price (USD)</label>
+        <label class="block text-sm font-medium text-slate-300 mb-2">Price (USD)</label>
         <input
           v-model="price"
           type="number"
           step="0.00000001"
           min="0"
           required
-          class="w-full bg-gray-700 text-white rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+          class="w-full bg-slate-800/50 border border-slate-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all placeholder-slate-500 font-mono"
           placeholder="0.00"
         />
       </div>
 
       <div>
-        <label class="block text-sm text-gray-400 mb-1">Amount</label>
+        <label class="block text-sm font-medium text-slate-300 mb-2">Amount</label>
         <input
           v-model="amount"
           type="number"
           step="0.00000001"
           min="0"
           required
-          class="w-full bg-gray-700 text-white rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+          class="w-full bg-slate-800/50 border border-slate-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all placeholder-slate-500 font-mono"
           placeholder="0.00"
         />
       </div>
 
       <!-- Volume Preview -->
-      <div v-if="volumePreview.volume > 0" class="bg-gray-700/50 rounded p-3 text-sm space-y-1">
-        <div class="flex justify-between text-gray-400">
-          <span>Volume</span>
-          <span class="font-mono text-white">${{ volumePreview.volume.toFixed(2) }}</span>
+      <div v-if="volumePreview.volume > 0" class="bg-slate-800/50 border border-slate-700 rounded-lg p-4 space-y-2.5">
+        <div class="flex justify-between items-center text-sm">
+          <span class="text-slate-400">Volume</span>
+          <span class="font-mono text-white font-semibold">${{ volumePreview.volume.toFixed(2) }}</span>
         </div>
-        <div class="flex justify-between text-gray-400">
-          <span>Commission (1.5%)</span>
-          <span class="font-mono text-yellow-400">${{ volumePreview.commission.toFixed(2) }}</span>
+        <div class="flex justify-between items-center text-sm">
+          <span class="text-slate-400">Commission (1.5%)</span>
+          <span class="font-mono text-yellow-400 font-semibold">${{ volumePreview.commission.toFixed(2) }}</span>
         </div>
-        <div class="flex justify-between text-gray-300 border-t border-gray-600 pt-1">
-          <span>{{ side === 'buy' ? 'Total Cost' : 'You Receive' }}</span>
-          <span :class="['font-mono font-semibold', side === 'buy' ? 'text-red-400' : 'text-green-400']">
+        <div class="flex justify-between items-center pt-2.5 border-t border-slate-700">
+          <span class="text-slate-300 font-medium">{{ side === 'buy' ? 'Total Cost' : 'You Receive' }}</span>
+          <span :class="[
+            'font-mono font-bold text-lg',
+            side === 'buy' ? 'text-red-400' : 'text-green-400'
+          ]">
             ${{ volumePreview.total.toFixed(2) }}
           </span>
         </div>
       </div>
 
-      <div v-if="error" class="text-red-400 text-sm">{{ error }}</div>
+      <div v-if="error" class="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm flex items-center gap-2">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>{{ error }}</span>
+      </div>
 
       <button
         type="submit"
         :disabled="isSubmitting"
         :class="[
-          'w-full py-3 rounded font-semibold transition-colors',
+          'w-full py-3.5 rounded-lg font-bold transition-all text-sm shadow-lg',
           side === 'buy'
-            ? 'bg-green-600 hover:bg-green-700 text-white'
-            : 'bg-red-600 hover:bg-red-700 text-white',
+            ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white shadow-green-500/25 hover:shadow-green-500/40'
+            : 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white shadow-red-500/25 hover:shadow-red-500/40',
           isSubmitting && 'opacity-50 cursor-not-allowed'
         ]"
       >
-        {{ isSubmitting ? 'Placing...' : `${side.toUpperCase()} ${symbol}` }}
+        <span v-if="isSubmitting" class="inline-flex items-center gap-2">
+          <span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+          <span>Placing Order...</span>
+        </span>
+        <span v-else>{{ side.toUpperCase() }} {{ symbol }}</span>
       </button>
     </form>
   </div>

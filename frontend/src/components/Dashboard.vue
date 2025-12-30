@@ -90,44 +90,81 @@ onUnmounted(() => {
     @close="clearToast"
   />
 
-  <div class="min-h-screen bg-gray-900 text-white p-6">
-    <div class="max-w-6xl mx-auto">
-      <div class="flex justify-between items-center mb-8">
-        <h1 class="text-3xl font-bold tracking-tight">Trading Dashboard</h1>
+  <div class="min-h-screen gradient-bg text-white p-4 md:p-6">
+    <div class="max-w-7xl mx-auto">
+      <!-- Header -->
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 md:mb-8">
+        <div>
+          <h1 class="text-3xl md:text-4xl font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+            Trading Dashboard
+          </h1>
+          <p class="text-slate-400 text-sm mt-1">Real-time order matching & portfolio management</p>
+        </div>
         <div class="flex items-center gap-4">
-          <div v-if="state.user" class="text-right">
-            <p class="text-white font-medium">{{ state.user.name }}</p>
-            <p class="text-sm text-gray-400">{{ state.user.email }}</p>
+          <div v-if="state.user" class="text-right hidden sm:block">
+            <p class="text-white font-semibold">{{ state.user.name }}</p>
+            <p class="text-sm text-slate-400">{{ state.user.email }}</p>
           </div>
           <button
             @click="handleLogout"
-            class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+            class="px-4 py-2 bg-slate-800/50 border border-slate-700 hover:bg-slate-700/50 text-slate-300 rounded-lg transition-all font-medium text-sm"
           >
             Logout
           </button>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         <!-- Left Column: Wallet + Order Form -->
-        <div class="space-y-6">
+        <div class="space-y-4 md:space-y-6">
           <!-- USD Balance -->
-          <div class="bg-gray-800 rounded-lg p-6">
-            <h2 class="text-lg font-semibold text-gray-400 mb-2">USD Balance</h2>
-            <p class="text-3xl font-bold text-green-400 font-mono">${{ state.balance }}</p>
+          <div class="trading-card p-6 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+            <div class="relative">
+              <div class="flex items-center justify-between mb-3">
+                <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider">USD Balance</h2>
+                <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p class="text-4xl font-bold text-green-400 font-mono glow-green">${{ state.balance }}</p>
+              <p class="text-xs text-slate-500 mt-2">Available for trading</p>
+            </div>
           </div>
 
           <!-- Asset Balances -->
-          <div class="bg-gray-800 rounded-lg p-6">
-            <h2 class="text-lg font-semibold text-gray-400 mb-4">Assets</h2>
-            <div v-if="state.assets.length === 0" class="text-gray-500">No assets</div>
+          <div class="trading-card p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-lg font-semibold text-white">Portfolio Assets</h2>
+              <div class="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+                <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+              </div>
+            </div>
+            <div v-if="state.assets.length === 0" class="text-center py-8 text-slate-500">
+              <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+              <p class="text-sm">No assets yet</p>
+            </div>
             <div v-else class="space-y-3">
-              <div v-for="asset in state.assets" :key="asset.symbol" class="flex justify-between items-center">
-                <span class="font-medium">{{ asset.symbol }}</span>
+              <div v-for="asset in state.assets" :key="asset.symbol" class="flex justify-between items-center p-3 bg-slate-800/30 rounded-lg border border-slate-700/50 hover:border-slate-600 transition-colors">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center font-bold text-indigo-300">
+                    {{ asset.symbol }}
+                  </div>
+                  <div>
+                    <p class="font-semibold text-white">{{ asset.symbol }}</p>
+                    <p v-if="parseFloat(asset.locked_amount) > 0" class="text-xs text-yellow-400">
+                      Locked: {{ asset.locked_amount }}
+                    </p>
+                  </div>
+                </div>
                 <div class="text-right font-mono">
-                  <p class="text-white">{{ asset.amount }}</p>
-                  <p v-if="parseFloat(asset.locked_amount) > 0" class="text-sm text-yellow-400">
-                    Locked: {{ asset.locked_amount }}
+                  <p class="text-lg font-bold text-white">{{ asset.amount }}</p>
+                  <p v-if="parseFloat(asset.locked_amount) > 0" class="text-xs text-slate-500">
+                    Available: {{ (parseFloat(asset.amount) - parseFloat(asset.locked_amount)).toFixed(8) }}
                   </p>
                 </div>
               </div>
@@ -139,7 +176,7 @@ onUnmounted(() => {
         </div>
 
         <!-- Right Column: Orderbook + Orders -->
-        <div class="lg:col-span-2 space-y-6">
+        <div class="lg:col-span-2 space-y-4 md:space-y-6">
           <!-- Symbol Selector for Orderbook -->
           <div class="flex gap-2">
             <button
@@ -147,10 +184,10 @@ onUnmounted(() => {
               :key="sym"
               @click="selectedSymbol = sym; loadOrderbook()"
               :class="[
-                'px-4 py-2 rounded font-medium transition-colors',
+                'px-5 py-2.5 rounded-lg font-semibold transition-all text-sm',
                 selectedSymbol === sym
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/25'
+                  : 'bg-slate-800/50 border border-slate-700 text-slate-400 hover:bg-slate-700/50 hover:text-slate-300'
               ]"
             >
               {{ sym }}
@@ -158,27 +195,40 @@ onUnmounted(() => {
           </div>
 
           <!-- Orderbook -->
-          <div class="bg-gray-800 rounded-lg p-6">
-            <h2 class="text-xl font-semibold mb-4">Orderbook - {{ selectedSymbol }}</h2>
+          <div class="trading-card p-6">
+            <div class="flex items-center justify-between mb-6">
+              <div>
+                <h2 class="text-xl font-bold text-white">Orderbook</h2>
+                <p class="text-sm text-slate-400 mt-1">{{ selectedSymbol }} Market Depth</p>
+              </div>
+              <div class="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+                <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+            </div>
             
             <div class="grid grid-cols-2 gap-4">
               <!-- Buy Orders -->
               <div>
-                <h3 class="text-green-400 font-medium mb-2">Buy Orders</h3>
-                <div class="space-y-1 text-sm font-mono">
-                  <div class="flex justify-between text-gray-500 border-b border-gray-700 pb-1 font-sans">
-                    <span>Price</span>
+                <div class="flex items-center gap-2 mb-3 pb-2 border-b border-slate-700">
+                  <div class="w-2 h-2 rounded-full bg-green-400 glow-green"></div>
+                  <h3 class="text-green-400 font-semibold">Bids (Buy)</h3>
+                </div>
+                <div class="space-y-0.5 text-sm font-mono max-h-64 overflow-y-auto">
+                  <div class="flex justify-between text-slate-500 border-b border-slate-800 pb-2 mb-2 font-sans text-xs uppercase tracking-wider">
+                    <span>Price (USD)</span>
                     <span>Amount</span>
                   </div>
                   <div
-                    v-for="order in state.orderbook.filter(o => o.side === 'buy' && o.symbol === selectedSymbol)"
+                    v-for="order in state.orderbook.filter(o => o.side === 'buy' && o.symbol === selectedSymbol).slice().reverse()"
                     :key="order.id"
-                    class="flex justify-between text-green-400"
+                    class="flex justify-between text-green-400 hover:bg-green-500/10 px-2 py-1 rounded transition-colors cursor-pointer"
                   >
-                    <span>{{ order.price }}</span>
-                    <span>{{ order.amount }}</span>
+                    <span class="font-semibold">{{ parseFloat(order.price).toFixed(2) }}</span>
+                    <span>{{ parseFloat(order.amount).toFixed(8) }}</span>
                   </div>
-                  <div v-if="state.orderbook.filter(o => o.side === 'buy' && o.symbol === selectedSymbol).length === 0" class="text-gray-500">
+                  <div v-if="state.orderbook.filter(o => o.side === 'buy' && o.symbol === selectedSymbol).length === 0" class="text-center py-8 text-slate-500 text-xs">
                     No buy orders
                   </div>
                 </div>
@@ -186,21 +236,24 @@ onUnmounted(() => {
 
               <!-- Sell Orders -->
               <div>
-                <h3 class="text-red-400 font-medium mb-2">Sell Orders</h3>
-                <div class="space-y-1 text-sm font-mono">
-                  <div class="flex justify-between text-gray-500 border-b border-gray-700 pb-1 font-sans">
-                    <span>Price</span>
+                <div class="flex items-center gap-2 mb-3 pb-2 border-b border-slate-700">
+                  <div class="w-2 h-2 rounded-full bg-red-400 glow-red"></div>
+                  <h3 class="text-red-400 font-semibold">Asks (Sell)</h3>
+                </div>
+                <div class="space-y-0.5 text-sm font-mono max-h-64 overflow-y-auto">
+                  <div class="flex justify-between text-slate-500 border-b border-slate-800 pb-2 mb-2 font-sans text-xs uppercase tracking-wider">
+                    <span>Price (USD)</span>
                     <span>Amount</span>
                   </div>
                   <div
                     v-for="order in state.orderbook.filter(o => o.side === 'sell' && o.symbol === selectedSymbol)"
                     :key="order.id"
-                    class="flex justify-between text-red-400"
+                    class="flex justify-between text-red-400 hover:bg-red-500/10 px-2 py-1 rounded transition-colors cursor-pointer"
                   >
-                    <span>{{ order.price }}</span>
-                    <span>{{ order.amount }}</span>
+                    <span class="font-semibold">{{ parseFloat(order.price).toFixed(2) }}</span>
+                    <span>{{ parseFloat(order.amount).toFixed(8) }}</span>
                   </div>
-                  <div v-if="state.orderbook.filter(o => o.side === 'sell' && o.symbol === selectedSymbol).length === 0" class="text-gray-500">
+                  <div v-if="state.orderbook.filter(o => o.side === 'sell' && o.symbol === selectedSymbol).length === 0" class="text-center py-8 text-slate-500 text-xs">
                     No sell orders
                   </div>
                 </div>
@@ -209,23 +262,26 @@ onUnmounted(() => {
           </div>
 
           <!-- Orders List -->
-          <div class="bg-gray-800 rounded-lg p-6">
-            <div class="flex justify-between items-center mb-4">
-              <h2 class="text-xl font-semibold">Order History</h2>
+          <div class="trading-card p-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+              <div>
+                <h2 class="text-xl font-bold text-white">Order History</h2>
+                <p class="text-sm text-slate-400 mt-1">Your trading activity</p>
+              </div>
               <button
                 @click="showTradesModal = true"
-                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
+                class="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-sm rounded-lg transition-all font-semibold shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40"
               >
                 Trades & Commissions
               </button>
             </div>
             
             <!-- Filters -->
-            <div class="flex flex-wrap gap-3 mb-4">
+            <div class="flex flex-wrap gap-2 mb-4">
               <select
                 v-model="filterSymbol"
                 @change="loadOrders"
-                class="bg-gray-700 text-white text-sm rounded px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                class="bg-slate-800/50 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
               >
                 <option value="">All Symbols</option>
                 <option value="BTC">BTC</option>
@@ -234,7 +290,7 @@ onUnmounted(() => {
               <select
                 v-model="filterSide"
                 @change="loadOrders"
-                class="bg-gray-700 text-white text-sm rounded px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                class="bg-slate-800/50 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
               >
                 <option value="">All Sides</option>
                 <option value="buy">Buy</option>
@@ -243,7 +299,7 @@ onUnmounted(() => {
               <select
                 v-model="filterStatus"
                 @change="loadOrders"
-                class="bg-gray-700 text-white text-sm rounded px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                class="bg-slate-800/50 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
               >
                 <option value="">All Status</option>
                 <option value="1">Open</option>
@@ -253,43 +309,66 @@ onUnmounted(() => {
               <button
                 v-if="filterSymbol || filterSide || filterStatus"
                 @click="filterSymbol = ''; filterSide = ''; filterStatus = ''; loadOrders()"
-                class="text-sm text-gray-400 hover:text-white"
+                class="text-sm text-slate-400 hover:text-white px-3 py-2 rounded-lg hover:bg-slate-800/50 transition-colors"
               >
                 Clear filters
               </button>
             </div>
             
-            <div v-if="state.isLoading" class="text-gray-400">Loading...</div>
-            <div v-else-if="state.orders.length === 0" class="text-gray-500">No orders</div>
+            <div v-if="state.isLoading" class="text-center py-12 text-slate-400">
+              <div class="w-8 h-8 border-2 border-slate-600 border-t-indigo-500 rounded-full animate-spin mx-auto mb-2"></div>
+              <p>Loading orders...</p>
+            </div>
+            <div v-else-if="state.orders.length === 0" class="text-center py-12 text-slate-500">
+              <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p class="text-sm">No orders found</p>
+            </div>
             <div v-else class="overflow-x-auto">
               <table class="w-full text-sm font-mono">
                 <thead>
-                  <tr class="text-gray-400 border-b border-gray-700">
-                    <th class="text-left py-2">Symbol</th>
-                    <th class="text-left py-2">Side</th>
-                    <th class="text-right py-2">Price</th>
-                    <th class="text-right py-2">Amount</th>
-                    <th class="text-center py-2">Status</th>
-                    <th class="text-right py-2">Action</th>
+                  <tr class="text-slate-400 border-b border-slate-700">
+                    <th class="text-left py-3 px-2 font-semibold text-xs uppercase tracking-wider">Symbol</th>
+                    <th class="text-left py-3 px-2 font-semibold text-xs uppercase tracking-wider">Side</th>
+                    <th class="text-right py-3 px-2 font-semibold text-xs uppercase tracking-wider">Price</th>
+                    <th class="text-right py-3 px-2 font-semibold text-xs uppercase tracking-wider">Amount</th>
+                    <th class="text-center py-3 px-2 font-semibold text-xs uppercase tracking-wider">Status</th>
+                    <th class="text-right py-3 px-2 font-semibold text-xs uppercase tracking-wider">Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="order in state.orders" :key="order.id" class="border-b border-gray-700/50">
-                    <td class="py-3">{{ order.symbol }}</td>
-                    <td :class="order.side === 'buy' ? 'text-green-400' : 'text-red-400'">
-                      {{ order.side.toUpperCase() }}
+                  <tr v-for="order in state.orders" :key="order.id" class="border-b border-slate-700/50 hover:bg-slate-800/30 transition-colors">
+                    <td class="py-3 px-2">
+                      <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-800/50 font-semibold text-white">
+                        {{ order.symbol }}
+                      </span>
                     </td>
-                    <td class="text-right">{{ order.price }}</td>
-                    <td class="text-right">{{ order.amount }}</td>
-                    <td :class="['text-center', statusColors[order.status]]">
-                      {{ statusLabels[order.status] }}
+                    <td class="py-3 px-2">
+                      <span :class="[
+                        'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold',
+                        order.side === 'buy' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                      ]">
+                        {{ order.side.toUpperCase() }}
+                      </span>
                     </td>
-                    <td class="text-right">
+                    <td class="py-3 px-2 text-right font-semibold text-white">${{ parseFloat(order.price).toFixed(2) }}</td>
+                    <td class="py-3 px-2 text-right font-semibold text-white">{{ parseFloat(order.amount).toFixed(8) }}</td>
+                    <td class="py-3 px-2 text-center">
+                      <span :class="[
+                        'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold',
+                        statusColors[order.status],
+                        order.status === 1 ? 'bg-yellow-500/20' : order.status === 2 ? 'bg-green-500/20' : 'bg-slate-700/50'
+                      ]">
+                        {{ statusLabels[order.status] }}
+                      </span>
+                    </td>
+                    <td class="py-3 px-2 text-right">
                       <button
                         v-if="order.status === 1"
                         @click="handleCancel(order.id)"
                         :disabled="cancellingId === order.id"
-                        class="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-xs font-medium disabled:opacity-50"
+                        class="px-3 py-1.5 bg-red-600/80 hover:bg-red-600 rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                       >
                         {{ cancellingId === order.id ? '...' : 'Cancel' }}
                       </button>
